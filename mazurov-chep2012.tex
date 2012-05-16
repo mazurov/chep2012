@@ -22,56 +22,125 @@
 \newcommand\intel{{Intel\textsuperscript{\textregistered}} }
 
 \begin{abstract}
-The LHCb software is based on the Gaudi framework, on top of which are built several large and complex software applications. As the LHCb experiment is now in the active phase of collecting and analyzing data,  performance problems arise in various parts of the software, from the High Level Trigger (HLT) programs to data analysis frameworks. It is not easy to find hotspots in the code --- only specialized tools can help to understand where CPU or memory usage are not reasonable. There exist many performance analyzing tools, but the main problem is that they show reports in terms of class and function names and such information usually is not very useful --- the majority of algorithm developers use the Gaudi framework abstractions and usually do not know about functions which lie at the lower level. We will show a new approach which adds to performance reports a higher abstraction level based on knowledge of framework architecture and run-time object properties. A set of profiling tools (based on \iamp) and visualization interfaces has been developed and deployed.
+The LHCb software is based on the Gaudi framework, on top of which are built several large and complex software 
+applications. As the LHCb experiment is now in the active phase of collecting and analyzing data, performance problems 
+arise in various parts of the software, from the High Level Trigger (HLT) programs to data analysis frameworks. 
+It is not easy to find hotspots in the code --- only specialized tools can help to understand where CPU or memory usage 
+are not reasonable. There exist many performance analyzing tools, but the main problem is that they show reports in 
+terms of class and function names and such information usually is not very useful --- the majority of algorithm 
+developers use the Gaudi framework abstractions and usually do not know about functions which lie at the lower level. 
+We will show a new approach which adds to performance reports a higher abstraction level based on knowledge of 
+framework architecture and run-time object properties. A set of profiling tools (based on \iamp) and visualization 
+interfaces has been developed and deployed.
 \end{abstract}
 
 \section{Introduction}
-In LHCb as in all High Energy Physics (HEP) experiments, complex software is used to process the data recorded by the detectors. Performance is an essential characteristic of this software, especially when dealing with the High Level Trigger (HLT): its role is to filter events coming from the hardware based trigger in order to identify those with interesting physics, and to write them to the storage in real-time. The number of events processed per second (event rate) is therefore one of the crucial characteristics of the HLT, as it has to keep up with the data rate delivered by the hardware triggers ($10^6$ events per second) in order to avoid data loss. To reach such high throughput, the processing is performed on many nodes in parallel by highly optimized algorithms. In order to optimize the algorithms, and to keep track of the evolution of the event rate when changes are applied to the HLT, it is necessary to measure the overall peformance of the code but also to understand which algorithms are costly in term of CPU and memory.
+In LHCb as in all High Energy Physics (HEP) experiments, complex software is used to process the data recorded 
+by the detectors. Performance is an essential characteristic of this software, especially when dealing with 
+the High Level Trigger (HLT): its role is to filter events coming from the hardware based trigger in order to identify 
+those with interesting physics, and to write them to the storage in real-time. The number of events processed per 
+second (event rate) is therefore one of the crucial characteristics of the HLT, as it has to keep up with the data rate 
+delivered by the hardware triggers ($10^6$ events per second) in order to avoid data loss. To reach such high 
+throughput, the processing is performed on many nodes in parallel by highly optimized algorithms. In order to optimize 
+the algorithms, and to keep track of the evolution of the event rate when changes are applied to the HLT, it is 
+necessary to measure the overall peformance of the code but also to understand which algorithms are costly in term of 
+CPU and memory.
 
-In this paper our focus is on the analysis of frequency and duration of function calls in algorithms (this type of analysis is commonly named CPU profiling). Profiling helps to identify parts of the code that take a long time to execute. In performance analysis, those places often are referenced as hotspots. Obviously,  hotspots affect the events rate of event processing software. So, one of the main goals of profiling HEP software is to point out to application developers the places in code that need to be tuned to increase events rate.
+In this paper our focus is on the analysis of frequency and duration of function calls in algorithms (this type of 
+analysis is commonly named CPU profiling). Profiling helps to identify parts of the code that take a long time to 
+execute. In performance analysis, those places often are referenced as hotspots. Obviously,  hotspots affect the events 
+rate of event processing software. So, one of the main goals of profiling HEP software is to point out to application 
+developers the places in code that need to be tuned to increase events rate.
 
-The first study on CPU profiling at LHCb was carried out by Daniele Francesco Kruse and Karol Kruzelecki in their work “Modular Software Performance Monitoring” \cite{modular}. They make the conclusion that instead of profiling the application as a whole it would be better to divide it into modules and profile those modules separately. In general terms,  module can be defined as an application’s structure component that used to group logically related functions.  Grouping performance results by module allows a better insight into where the performance issues are coming from. Since each module is under the responsibility of a specific developer,  the provided reports can point out to the concrete person who is responsible for the module. For example, in the Gaudi \cite{gaudi} framework at LHCb each algorithm used for event processing is such a module which can be profiled independently. More details on Gaudi will be given in Section 3.1. 
+The first study on CPU profiling at LHCb was carried out by Daniele Francesco Kruse and Karol Kruzelecki in their work 
+“Modular Software Performance Monitoring” \cite{modular}. They make the conclusion that instead of profiling 
+the application as a whole it would be better to divide it into modules and profile those modules separately. 
+In general terms,  module can be defined as an application’s structure component that used to group logically 
+related functions.  Grouping performance results by module allows a better insight into where the performance 
+issues are coming from. Since each module is under the responsibility of a specific developer,  the provided reports 
+can point out to the concrete person who is responsible for the module. For example, in the Gaudi \cite{gaudi} 
+framework at LHCb each algorithm used for event processing is such a module which can be profiled independently. 
+More details on Gaudi will be given in Section 3.1. 
 
-This design principle was first implemented in the set of profiling tools based on perfmon2 \cite{perfmon2} library.  The tools have several drawbacks. First, the produced analysis reports  used the  hardware event counters metrics. Only developers with a good knowledge of the hardware could read and interpret those report. Since the major part of developers at HEP are physicists, the number of users of those tools are very low. Second, since the current tools does not use the counters multiplexing feature of perfmon2 library, the target program should be runned several times to collect all required hardware counters. As a result, the profiling time is significantly increasing.
+This design principle was first implemented in the set of profiling tools based on perfmon2 \cite{perfmon2} library.  
+The tools have several drawbacks. First, the produced analysis reports  used the  hardware event counters metrics. 
+Only developers with a good knowledge of the hardware could read and interpret those report. Since the major part of 
+developers at HEP are physicists, the number of users of those tools are very low. Second, since the current tools 
+does not use the counters multiplexing feature of perfmon2 library, the target program should be runned several times 
+to collect all required hardware counters. As a result, the profiling time is significantly increasing.
 
-To fill some of the the gaps of the previous tools we created the Gaudi Intel Profiling Auditor. This profiling tool uses the same module principle that was described in \cite{modular},  but is based on \iamp \cite{vtune}. VTune™ Amplifier is the newest performance profiling tool, that provides better functionality than perfmon2 library. 
+To fill some of the the gaps of the previous tools we created the Gaudi Intel Profiling Auditor. This profiling tool 
+uses the same module principle that was described in \cite{modular},  but is based on \iamp \cite{vtune}. 
+\amp is the newest performance profiling tool, that provides better functionality than perfmon2 library. 
 
-In the next section we briefly review \iamp. Then discuss how Gaudi Intel Profiling Auditor can integrate \amp to the Gaudi framework and show examples of using those tools to profile LHCb's HLT.
+In the next section we briefly review \iamp. Then discuss how Gaudi Intel Profiling Auditor can integrate \amp to 
+the Gaudi framework and show examples of using those tools to profile LHCb's HLT.
 
 \section{\iamp}
-In this section we overview the modern performance profiling tool \iamp, describe its basic features and analysis reports.
+In this section we overview the modern performance profiling tool \iamp, describe its basic features and analysis 
+reports.
 
 \subsection{Overview}
-\iamp is a commercial application for software performance analysis that is available for both Linux and Windows operating systems. \amp belongs to the runtime instrumentation class of profiling tools. This means that the code is instrumented before execution and program is fully supervised by the tool. A target application can be profiled without any modification of the codebase.
+\iamp is a commercial application for software performance analysis that is available for both Linux and Windows 
+operating systems. \amp belongs to the runtime instrumentation class of profiling tools. This means that the code is 
+instrumented before execution and program is fully supervised by the tool. A target application can be profiled without 
+any modification of the codebase.
 
-\iamp has a various kinds of code analysis including hotspot analysis, concurrency analysis, locks and waits analysis. In our tools we use a hotspot analysis based on the user-mode  sampling feature of \amp. User-mode sampling allows to profile a program by exploring a call stack of a running program and produce one simple metric --- amount of time spent in the function. 
+\iamp has a various kinds of code analysis including hotspot analysis, concurrency analysis, locks and waits analysis. 
+In our tools we use a hotspot analysis based on the user-mode  sampling feature of \amp. User-mode sampling allows 
+to profile a program by exploring a call stack of a running program and produce one simple metric --- amount of time 
+spent in the function. 
 
-The amount of time spent in a function (CPU time) is calculated by interrupting a process and collecting samples of call stacks from all active threads. CPU time value is calculated by counting a number of  a function appearances on the top of a call stack. This means that stack sampling is a statistical method and does not provide a 100\% accurate data. However, for a large number of samples the sampling error does not have a serious impact on the accuracy of analysis. More details about sampling accuracy will be provided in the section on sampling interval.
+The amount of time spent in a function (CPU time) is calculated by interrupting a process and collecting samples of 
+call stacks from all active threads. CPU time value is calculated by counting a number of  a function appearances on 
+the top of a call stack. This means that stack sampling is a statistical method and does not provide a 100\% accurate 
+data. However, for a large number of samples the sampling error does not have a serious impact on the accuracy of 
+analysis. More details about sampling accuracy will be provided in the section on sampling interval.
 
-\amp also support the hardware event-based sampling and provides advanced metrics based on event counters inside a processor. Reports, that use those metrics,  require the knowledge of hardware architecture  unlike the user-mode sampling reports that can be understood by any application developers. Furthermore, while the user-mode sampling can be performed on any of 32 and 64-bit x86 based machine, the hardware event-based sampling targeted only for specific \intel microarchitecture and requires a special driver to be installed on the operating system. The advantage of the hardware event-based sampling that it can be used for fine tuning of algorithms in places where  the user-mode sampling could not point out the reasons for the hotspot.
+\amp also support the hardware event-based sampling and provides advanced metrics based on event counters inside 
+a processor. Reports, that use those metrics,  require the knowledge of hardware architecture  unlike the user-mode 
+sampling reports that can be understood by any application developers. Furthermore, while the user-mode sampling can 
+be performed on any of 32 and 64-bit x86 based machine, the hardware event-based sampling targeted only for specific 
+\intel microarchitecture and requires a special driver to be installed on the operating system. The advantage of 
+the hardware event-based sampling that it can be used for fine tuning of algorithms in places where  the user-mode 
+sampling could not point out the reasons for the hotspot.
 
-The goal of our profiling tool is to provide analysis reports to a wider audience of software developers and, therefore, for implementation we chose the user-mode sampling method over hardware-mode sampling.
+The goal of our profiling tool is to provide analysis reports to a wider audience of software developers and, therefore, 
+for implementation we chose the user-mode sampling method over hardware-mode sampling.
 
 \subsection{Sampling interval}
 
-The sampling interval is an important parameter of the user-mode sampling method. It can impact on results accuracy and on total profiling time. The recommended value is 10 ms. Using this value an average overhead of the sampling is about 5\%.  The minimum sampling interval value depends on the operating system. For example, a 10 ms interval is the minimum value at the old Linux kernel 2.4, whereas 1 ms is minimum value at the modern Linux $\ge$ 2.6 kernels.
+The sampling interval is an important parameter of the user-mode sampling method. It can impact on results accuracy and 
+on total profiling time. The recommended value is 10 ms. Using this value an average overhead of the sampling 
+is about 5\%.  The minimum sampling interval value depends on the operating system. For example, a 10 ms interval 
+is the minimum value at the old Linux kernel 2.4, whereas 1 ms is minimum value at the modern Linux $\ge$ 2.6 kernels.
 
-To determine an appropriate sampling interval, consider the duration of the collection, the speed of your processors, and the amount of software activity. For example, if the duration of sampling time is more than 10 minutes, consider increasing the sampling interval to 50 milliseconds. This reduces the number of interrupts and the number of samples collected and written to disk. The smaller the sampling interval, the larger the number of samples collected and written to disk.
+To determine an appropriate sampling interval, consider the duration of the collection, the speed of your processors, 
+and the amount of software activity. For example, if the duration of sampling time is more than 10 minutes, 
+consider increasing the sampling interval to 50 milliseconds. This reduces the number of interrupts and 
+the number of samples collected and written to disk. The smaller the sampling interval, the larger the number of samples 
+collected and written to disk.
 
 \subsection{Tools}
 
-\amp has two major interfaces --- a command-line tool {\it amplxe-cl} and a Graphical User Interface tool {\it amplxe-gui}. {\it Amplxe-gui} generally plays a role of analysis results presenter, but can also be used as a wrapper to the  command-line tool. {\it Amplxe-cl} is used to execute the profiling supervisor with appropriate parameters.  The second important function of {\it amplxe-cl}is to export CPU usage reports to CSV text format. This feature allows to use collected data not only inside \amp, but also in external user applications. 
+\amp has two major interfaces --- a command-line tool {\it amplxe-cl} and a Graphical User Interface 
+tool {\it amplxe-gui}. {\it Amplxe-gui} generally plays a role of analysis results presenter, but can also be used as 
+a wrapper to the  command-line tool. {\it Amplxe-cl} is used to execute the profiling supervisor with appropriate 
+parameters.  The second important function of {\it amplxe-cl}is to export CPU usage reports to CSV text format. 
+This feature allows to use collected data not only inside \amp, but also in external user applications. 
 
 \subsection{Profiling reports}
 
-In this section we review essential profiling reports that are available in \amp. These reports can be obtained either from amplxe-gui or amplxe-cl tool, but for short we present only GUI screenshots.
+In this section we review essential profiling reports that are available in \amp. These reports can be obtained either 
+from amplxe-gui or amplxe-cl tool, but for short we present only GUI screenshots.
 
 An ordered function’s CPU time usage report is a basic report almost at all performance profilers:
 
 \begin{figure}[H]
 \begin{minipage}{\textwidth}
 \includegraphics[width=\textwidth]{figs/fig01.png}
-\caption{\label{fig01}Function’s CPU Time report. First column contains function name. At the second column is a CPU time usage and the last column contains a name of shared library where a function is defined.}
+\caption{\label{fig01}Function’s CPU Time report. First column contains function name. At the second column is a CPU 
+time usage and the last column contains a name of shared library where a function is defined.}
 \end{minipage}
 \end{figure}
 
@@ -93,7 +162,8 @@ Example of grouping by shared library:
 \end{figure}
 
 
-The striking feature of \amp is an ability to filter data based on a selection in the timeline. This feature does not exists in other popular profilers:
+The striking feature of \amp is an ability to filter data based on a selection in the timeline. This feature 
+does not exists in other popular profilers:
 
 \begin{figure}[H]
 \begin{minipage}{\textwidth}
@@ -113,7 +183,10 @@ CPU usage by code line can be created if a target application was compiled with 
 
 \subsection{Detecting code dependency}
 
-In addition, besides finding hotspots, another useful function of the profiling tool is to reveal the code dependencies. Usually HEP applications have a lot of lines of code and were developed by many people during a long period of time. Therefore, determining relations between parts of code is very difficult. Since \amp  has a top-down tree report of  functions calls (Figure~\ref{fig06}.),  we can determine the code dependency in the application.
+In addition, besides finding hotspots, another useful function of the profiling tool is to reveal the code dependencies. 
+Usually HEP applications have a lot of lines of code and were developed by many people during a long period of time. 
+Therefore, determining relations between parts of code is very difficult. Since \amp  has a top-down tree report of 
+functions calls (Figure~\ref{fig06}.),  we can determine the code dependency in the application.
 
 \begin{figure}[H]
 \begin{minipage}{\textwidth}
@@ -124,26 +197,39 @@ In addition, besides finding hotspots, another useful function of the profiling 
 
 \section{Gaudi Intel Profiling Auditor}
 
-In previous section we show that \iamp is a powerful performance profiling tool. What are the disadvantages of the tool? Why do we need to implement something~else? In the current section we are going to answer those questions. First, we talk about Gaudi framework and then show how the Gaudi Intel Profiling Auditor can enhance \amp reports.
+In previous section we show that \iamp is a powerful performance profiling tool. What are the disadvantages of the tool? 
+Why do we need to implement something~else? In the current section we are going to answer those questions. 
+First, we talk about Gaudi framework and then show how the Gaudi Intel Profiling Auditor can enhance \amp reports.
 
 \subsection{Gaudi}
 
 \subsubsection{Overview.}
 
-Gaudi is a C++ software framework used to build event data processing applications using a set of standard components.  Gaudi is a core framework used by several HEP experiments, in particular LHCb and ATLAS at LHC. All of the event processing applications, including simulation, reconstruction, high-level trigger and analysis are based on this framework. By design, the framework decouples the objects  describing the data and those implementing the algorithms. Due to this design,  developers can concentrate only on  physics related tasks in algorithms and usually do not care about other parts of the framework. 
+Gaudi is a C++ software framework used to build event data processing applications using a set of standard components.  
+Gaudi is a core framework used by several HEP experiments, in particular LHCb and ATLAS at LHC. 
+All of the event processing applications, including simulation, reconstruction, high-level trigger and analysis 
+are based on this framework. By design, the framework decouples the objects  describing the data and those 
+implementing the algorithms. Due to this design,  developers can concentrate only on  physics related tasks 
+in algorithms and usually do not care about other parts of the framework. 
 
 \begin{figure}[H]
 \begin{minipage}{\textwidth}
 \includegraphics[width=\textwidth]{figs/fig07.png}
-\caption{\label{fig07}Gaudi Architecture. Applications are made by composing sequences of Algorithms and adding specific Services and Tools.}
+\caption{\label{fig07}Gaudi Architecture. Applications are made by composing sequences of Algorithms and adding 
+specific Services and Tools.}
 \end{minipage}
 \end{figure}
 
-The Gaudi framework is a highly customizable framework. Any component of the system can be configured by user  options. 
+The Gaudi framework is a highly customizable framework. Any component of the system can be configured by user options. 
 
 \subsubsection{Gaudi Auditors.}
 
-The Application Manager is one of the major components of the Gaudi. It takes care of instantiating and calling algorithms. A supplement to this component  is the Auditor Service that enable to add auditors to  Gaudi application. The auditor is a set of user functions that are called on some workflow events in the Manager. For example, we could add custom action that is called when the Manager wants to execute some algorithm or when an algorithm is finished.  There are many different events types and we can add as many auditors as needed. In other frameworks and programming languages, this type of functions are often referenced as the callback functions.
+The Application Manager is one of the major components of the Gaudi. It takes care of instantiating and
+ calling algorithms. A supplement to this component  is the Auditor Service that enable to add auditors to 
+ Gaudi application. The auditor is a set of user functions that are called on some workflow events in the Manager. 
+ For example, we could add custom action that is called when the Manager wants to execute some algorithm or when 
+ an algorithm is finished.  There are many different events types and we can add as many auditors as needed. 
+ In other frameworks and programming languages, this type of functions are often referenced as the callback functions.
 
 In the following section we show how we can use an auditor to build a profiling tool.
 
@@ -151,30 +237,57 @@ In the following section we show how we can use an auditor to build a profiling 
 
 \subsubsection{Objectives.}
 
-A Gaudi application can be profiled by \amp  without any modifications of the codebase.  This tool can collect any data about CPU consumption in code lines, functions, classes, shared libraries, threads, but it has one disadvantage. \amp knows nothing about Gaudi framework’s algorithms. However, algorithms are the central point of any framework application, all major event processings occur there. In principle, a general task of framework users is just to write algorithms that solve a problem and usually nothing more. So, if profiler could generate report that can group function’s CPU usage by algorithm then application developers could look to the profiling result from a new point of view. This point of view can help to reveal previously invisible hotspots. Moreover, by algorithm name we usually can identify the algorithm’s authors and reports can point to the person who is responsible for the hotspot code. In order to provide such report the Gaudi Intel Profiler Auditor was developed.
+A Gaudi application can be profiled by \amp  without any modifications of the codebase.  This tool can collect any data 
+about CPU consumption in code lines, functions, classes, shared libraries, threads, but it has one disadvantage. 
+\amp knows nothing about Gaudi framework’s algorithms. However, algorithms are the central point of any framework 
+application, all major event processings occur there. In principle, a general task of framework users is just to write 
+algorithms that solve a problem and usually nothing more. So, if profiler could generate report that can group 
+function’s CPU usage by algorithm then application developers could look to the profiling result 
+from a new point of view. This point of view can help to reveal previously invisible hotspots. Moreover, 
+by algorithm name we usually can identify the algorithm’s authors and reports can point to the person who is 
+responsible for the hotspot code. In order to provide such report the Gaudi Intel Profiler Auditor was developed.
 
 \subsubsection{User API of \iamp.}
 
-Each Gaudi algorithm has a name that is assigned to an algorithm at run-time. \amp, in turn, is supplied with a C library that allows to import those names to the target report. In order to use the library from user applications, the public User API is provided in \amp. The API enables to control data collection process and set marks during the execution of the code. Possibility to mark code regions in runtime is the striking feature to our new profiling tool, because a CPU usage in the region between algorithm’s start and finish points is what we need for the report that group functions by algorithm. Event API is a part of the User API  that is in charge of marking 
+Each Gaudi algorithm has a name that is assigned to an algorithm at run-time. \amp, in turn, is supplied with 
+a C library that allows to import those names to the target report. In order to use the library from user applications, 
+the public User API is provided in \amp. The API enables to control data collection process and set marks during 
+the execution of the code. Possibility to mark code regions in runtime is the striking feature 
+to our new profiling tool, because a CPU usage in the region between algorithm’s start and finish points is what we 
+need for the report that group functions by algorithm. 
+Event API is a part of the User API  that is in charge of marking.
 
 \begin{description}
 \item[\_itt\_event \_\_itt\_event\_create(const \_\_itt\_char \*name, int namelen );] \hfill \\
-Create a user event type with the specified name. This API returns a handle to the user event type that should be passed into the following APIs as a parameter. The namelen parameter refers to the number of characters, not the number of bytes.
+Create a user event type with the specified name. This API returns a handle to the user event type that should be 
+passed into the following APIs as a parameter. The namelen parameter refers to the number of characters, 
+not the number of bytes.
 
 \item[int \_\_itt\_event\_start( \_\_itt\_event event );] \hfill \\
-Call this API with an already created user event handle to register an instance of that event. This event appears in the Timeline pane display as a tick mark.
+Call this API with an already created user event handle to register an instance of that event. This event appears 
+in the Timeline pane display as a tick mark.
 
 \item[int \_\_itt\_event\_end( \_\_itt\_event event );] \hfill \\
-Call this API following a call to \_\_itt\_event\_start() to show the user event as a tick mark with a duration line from start to end. If this API is not called, the user event appears in the Timeline pane as a single tick mark.
+Call this API following a call to \_\_itt\_event\_start() to show the user event as a tick mark with a duration line 
+from start to end. If this API is not called, the user event appears in the Timeline pane as a single tick mark.
 \end{description}
 
 \subsubsection{Implementation.}
 
-An auditor is a good component for implementing the required profiling tool. In this case, we do not need to modify the algorithm’s code and need only to write two callback functions: at algorithm start and finish. In order to generate the target report those functions need to call Event API functions of \amp.
+An auditor is a good component for implementing the required profiling tool. In this case, we do not need to modify 
+the algorithm’s code and need only to write two callback functions: at algorithm start and finish. In order to generate 
+the target report those functions need to call Event API functions of \amp.
 
-An appropriate auditor was created and named Gaudi Intel Profiling Auditor. It was deployed to the GaudiProfiling package of Gaudi framework as a shared library. Below we show how this profiling tool marks regions and what reports can be generated.
+An appropriate auditor was created and named Gaudi Intel Profiling Auditor. It was deployed to the GaudiProfiling 
+package of Gaudi framework as a shared library. Below we show how this profiling tool marks regions and what reports 
+can be generated.
 
-Gaudi has a special type of algorithms --- Sequence. Each instance of Sequence can execute other algorithms or sequences. So, an application’s event loop could have not only a flat but also a tree structure. Moreover, the same algorithm instance can occur in different sequences. Therefore, was decided that algorithm’s region between its start and finish should be marked by the branch identifier. In this case, we get more detailed information about usage of algorithm in application. A branch identifier is constructed from an algorithm name and its parents in the sequence tree. For example, let’s profile an application that has the following sequence tree:
+Gaudi has a special type of algorithms --- Sequence. Each instance of Sequence can execute other algorithms or 
+sequences. So, an application’s event loop could have not only a flat but also a tree structure. Moreover, the same 
+algorithm instance can occur in different sequences. Therefore, was decided that algorithm’s region between its start 
+and finish should be marked by the branch identifier. In this case, we get more detailed information about usage of 
+algorithm in application. A branch identifier is constructed from an algorithm name and its parents 
+in the sequence tree. For example, let’s profile an application that has the following sequence tree:
 \begin{verbatim}
 Hlt 
     HltDecisionSequence 
@@ -193,7 +306,8 @@ Hlt
                     Hlt1DiMuonHighMassL0DUFilter
 \end{verbatim}
 
-In \amp the report that use information on marked regions can be obtained by choosing the "Task Type / Function / Call Stack" grouping options as seen on Figure~\ref{fig08}.
+In \amp the report that use information on marked regions can be obtained by choosing the 
+"Task Type / Function / Call Stack" grouping options as seen on Figure~\ref{fig08}.
 
 \begin{figure}[H]
 \begin{minipage}{\textwidth}
@@ -202,7 +316,9 @@ In \amp the report that use information on marked regions can be obtained by cho
 \end{minipage}
 \end{figure}
 
-A branch identifier in the report on Figure~\ref{fig08} is constructed with names of algorithms that was executing when the \amp supervisor sampled a call stack. Each name in the branch is separated by the space. A total CPU usage of an algorithm can be counted by summarizing CPU Time in all rows which contain an algorithm name.
+A branch identifier in the report on Figure~\ref{fig08} is constructed with names of algorithms that was executing 
+when the \amp supervisor sampled a call stack. Each name in the branch is separated by the space. A total CPU usage 
+of an algorithm can be counted by summarizing CPU Time in all rows which contain an algorithm name.
 
 For each branch we could see a CPU usage by function:
 
@@ -213,26 +329,36 @@ For each branch we could see a CPU usage by function:
 \end{minipage}
 \end{figure}
 
-As you can observe the main goal was achieved --- we get the report that group function’s CPU usage by algorithm. So, the next step is only to interpret profiling results by application developers and, if needed, to tune algorithms.
+As you can observe the main goal was achieved --- we get the report that group function’s CPU usage by algorithm. 
+So, the next step is only to interpret profiling results by application developers and, if needed, to tune algorithms.
 
-In addition to reports on algorithms, in Gaudi Intel Profiling Auditor were added options that allow to skip unimportant regions of the code during profiling. Information about functions in those regions does not collected and, as a result, we get clearer reports and a decrease of total profiling time. For example, usually time critical processes happens in the event loop.Thus, initialization and finalization phases are not interested for developers. Due to this, the auditor has options that trigger the start of  profiling on the first event in the event loop and stop it after the last event. 
+In addition to reports on algorithms, in Gaudi Intel Profiling Auditor were added options that allow to skip 
+unimportant regions of the code during profiling. Information about functions in those regions does not collected and, 
+as a result, we get clearer reports and a decrease of total profiling time. For example, usually time critical 
+processes happens in the event loop.Thus, initialization and finalization phases are not interested for developers. 
+Due to this, the auditor has options that trigger the start of  profiling on the first event in the event loop 
+and stop it after the last event. 
 
 \subsubsection{Usage example.}
 
-For user’s convenience was created the command-line tool intelprofiler that is wrapper of the amplxe-cl. It does a dirty work of initializing an environment and setting the common parameters of profiling. For example, we can start a profiling by executing the simple shell command:
+For user’s convenience was created the command-line tool intelprofiler that is wrapper of the amplxe-cl. 
+It does a dirty work of initializing an environment and setting the common parameters of profiling. 
+For example, we can start a profiling by executing the simple shell command:
 \begin{verbatim}
 $> intelprofiler -o /path/to/collected/data/  gaudi_program.py
 \end{verbatim}
 , where an option -o points to the directory to store collected data. 
 
-Generally a Gaudi program is configured from option file that is written in Python language. To enable profiler we need to add minimum the following three lines:
+Generally a Gaudi program is configured from option file that is written in Python language. 
+To enable profiler we need to add minimum the following three lines:
 \begin{verbatim}
 from Configurables import IntelProfilerAuditor
 profiler = IntelProfilerAuditor()
 AuditorSvc().Auditors +=  [profiler]
 \end{verbatim}
 
-At the first line we imported the auditor library. Then instantiated the profiler and at third line added the auditor to the Auditor Service component.
+At the first line we imported the auditor library. Then instantiated the profiler and at third line added the auditor 
+to the Auditor Service component.
 
 If you would like to skip unnecessary events in event loop you need to add the following lines:
 \begin{verbatim}
@@ -242,16 +368,23 @@ profiler.StopAtEventN = 15000
 ,where we collect profiling data only for event between 5000 and 15000 within algoritm {\it MyAlgorithmInstance}.
 
 
-From all above we can see that Gaudi Intel Profiling Auditor gives to application developers a full control on profiling process.
+From all above we can see that Gaudi Intel Profiling Auditor gives to application developers a full control on 
+profiling process.
 
 
 \section{HLT Profiling Examples}
 
-In the previous section we demonstrated how Gaudi Intel Profiler Auditor can assist  in profiling Gaudi applications. The leading cause of  creating this auditor was a profiling of HLT applications at LHCb experiment. As was stated in the introduction, trigger’s programs are most sensitive to the event processing time. Therefore, a performance profiling is an essential tool in hands of trigger’s applications developers. In this section we show three examples of using \amp and Gaudi Intel Profiling Auditor to profile Moore application --- Gaudi based HLT framework at LHCb. 
+In the previous section we demonstrated how Gaudi Intel Profiler Auditor can assist  in profiling Gaudi applications. 
+The leading cause of  creating this auditor was a profiling of HLT applications at LHCb experiment. 
+As was stated in the introduction, trigger’s programs are most sensitive to the event processing time. 
+Therefore, a performance profiling is an essential tool in hands of trigger’s applications developers. 
+In this section we show three examples of using \amp and Gaudi Intel Profiling Auditor to profile Moore 
+application --- Gaudi based HLT framework at LHCb. 
 
 \subsection{Memory Allocation Functions}
 
-In the first example we profile a Moore program twice. First time a program was executed with the standard memory allocation function {\it operatornew} from libstdc++ library: 
+In the first example we profile a Moore program twice. First time a program was executed with the standard memory 
+allocation function {\it operatornew} from libstdc++ library: 
 
 \begin{figure}[H]
 \begin{minipage}{\textwidth}
@@ -260,22 +393,38 @@ In the first example we profile a Moore program twice. First time a program was 
 \end{minipage}
 \end{figure}
 
-, and second time it was executed with the memory allocation function {\it tc\_new} from tcmalloc library developed by Google:
+, and second time it was executed with the memory allocation function {\it tc\_new} from tcmalloc library 
+developed by Google:
 
 \begin{figure}[H]
 \begin{minipage}{\textwidth}
 \includegraphics[width=\textwidth]{figs/fig11.png}
-\caption{\label{fig11}Hotspot function in the Moore application with the memory allocation functions from tcmalloc library.}
+\caption{\label{fig11}Hotspot function in the Moore application with the memory allocation functions from tcmalloc 
+library.}
 \end{minipage}
 \end{figure}
 
-The figures indicates that {\it tc\_new} function is twice faster than {\it operatornew}. Moreover, the total application time reduction by 5\% was observed if we replace standard allocation functions with function from tcmalloc library.
+The figures indicates that {\it tc\_new} function is twice faster than {\it operatornew}. Moreover, the total 
+application time reduction by 5\% was observed if we replace standard allocation functions with function 
+from tcmalloc library.
 
 \subsection{Measuring Profiling Accuracy}
 
-To check the CPU time measurement accuracy we compared the results obtained by the Gaudi Intel Profiler Auditor and by the Gaudi Timer Auditor. The Timer Auditor proceed  in the same way as the Profiler Auditor ---  it calculates the difference between the algorithm’s finish time and the time at the start of the algorithm. Unlike the Gaudi Intel Profiler Auditor, the Timer Auditor calculates the exact time spent in the algorithm. So, we can assume a CPU time observed by the Timer Auditor as a reference value. The limitation of the Timer is that it creates reports only for algorithms times  and could not provide results for a low level of granularity (for functions or code instructions). Therefore, only the algorithm’s CPU times were compared.
+To check the CPU time measurement accuracy we compared the results obtained by the Gaudi Intel Profiler Auditor 
+and by the Gaudi Timer Auditor. The Timer Auditor proceed  in the same way as the Profiler Auditor ---  
+it calculates the difference between the algorithm’s finish time and the time at the start of the algorithm. 
+Unlike the Gaudi Intel Profiler Auditor, the Timer Auditor calculates the exact time spent in the algorithm. 
+So, we can assume a CPU time observed by the Timer Auditor as a reference value. The limitation of the Timer is that 
+it creates reports only for algorithms times  and could not provide results for a low level of granularity 
+(for functions or code instructions). Therefore, only the algorithm’s CPU times were compared.
 
-Since the VTune Amplifier XE instruments the code before execution, the absolute CPU time measured by the Profiler can differs from the time measured by the Timer auditor.  But the time distribution of all algorithms should stay the same in both auditors.  So, for the test we took a real HLT application and run it twice. First time we used  the Timer auditor  and second time the Gaudi Timer Auditor was used. Then we selected five hotspot algorithms and calculated their time distribution relative to the top hotspot algorithm. The process was repeated three times with different number of events: 10 (Table~\ref{tevents10}), 100 (Table~\ref{tevents100}) and 1000 events (Table~\ref{tevents1000}): 
+Since the VTune Amplifier XE instruments the code before execution, the absolute CPU time measured by the Profiler can 
+differs from the time measured by the Timer auditor.  But the time distribution of all algorithms should stay the same 
+in both auditors.  So, for the test we took a real HLT application and run it twice. First time we used  
+the Timer auditor  and second time the Gaudi Timer Auditor was used. Then we selected five hotspot algorithms and 
+calculated their time distribution relative to the top hotspot algorithm. The process was repeated three times with 
+different number of events: 10 (Table~\ref{tevents10}), 100 (Table~\ref{tevents100}) and 
+1000 events (Table~\ref{tevents1000}): 
 
 \begin{table}[H]
 \caption{\label{tevents10}10 events}
@@ -328,11 +477,16 @@ HltPVsPV3D & 2.491 & 2.25 & \bf{0.241}\\
 \end{center}
 \end{table}
 
-As expected, our test shows that the hotspot algorithms are the same in both auditors and the accuracy of the CPU time distribution measured by the Profiler is increasing while increasing the number of events. As a result, we can be confident that the Profiler can identify the hotspots with the high precision.
+As expected, our test shows that the hotspot algorithms are the same in both auditors and the accuracy of 
+the CPU time distribution measured by the Profiler is increasing while increasing the number of events. 
+As a result, we can be confident that the Profiler can identify the hotspots with the high precision.
 
 \subsection{Custom reports}
 
-In the second example is demonstrated how custom reports can be created. Basic profiling reports can be picked up in \amp, but if a custom report is required then a user tool needs to be created . This application can get the CPU usage data from VTune™ Amplifier XE by using its export function. For example, if we export CPU Time data that is shown on Figure~\ref{fig08} then the following pie chart report can be created.
+In the second example is demonstrated how custom reports can be created. Basic profiling reports can be picked up in 
+\amp, but if a custom report is required then a user tool needs to be created . This application can get the CPU usage 
+data from VTune™ Amplifier XE by using its export function. For example, if we export CPU Time data that is shown on 
+Figure~\ref{fig08} then the following pie chart report can be created.
 
 \begin{figure}[H]
 \begin{minipage}{\textwidth}
@@ -343,20 +497,33 @@ In the second example is demonstrated how custom reports can be created. Basic p
 \end{minipage}
 \end{figure}
 
-The report on Figure~\ref{fig12} was produced by user application that took an exported CSV data and compiled it to javascript code that can be inserted to any web page \cite{reports}.
+The report on Figure~\ref{fig12} was produced by user application that took an exported CSV data and compiled it to 
+javascript code that can be inserted to any web page \cite{reports}.
 
 \section{Conclusions}
-In this paper we presented the Gaudi Intel Performance Auditor --- a CPU profiling tool that is used in LHCb experiment at CERN. This tool integrates the functionality of \iamp performance profiler to the LHCb core framework Gaudi. The key advantage of the auditor is an ability to produce reports that use the framework’s modules to present performance analysis results. Those reports help  developers to identify hotspots in the code and improve the application performance. Besides the reports, Gaudi Intel Performance Auditor provides the options that allow to control the \iamp supervisor’s process from the Gaudi applications.
+In this paper we presented the Gaudi Intel Performance Auditor --- a CPU profiling tool that is used 
+in LHCb experiment at CERN. This tool integrates the functionality of \iamp performance profiler to 
+the LHCb core framework Gaudi. The key advantage of the auditor is an ability to produce reports that use 
+the framework’s modules to present performance analysis results. Those reports help  developers to identify hotspots in 
+the code and improve the application performance. Besides the reports, Gaudi Intel Performance Auditor provides 
+the options that allow to control the \iamp supervisor’s process from the Gaudi applications.
 
-The results have further strengthened our confidence in the profiling sampling technique. This technique gives us a reasonable overhead of total profiling time (5\% at \iamp) in comparison to the tools that count the functions calls. For example, the popular profiling tool Valgrind~\cite{valgrind} counts every code instruction and programs running under this tool usually runs from five to twenty times as slow as running outside Valgrind. Though Valgrind provide the precise measurements, using the sampling technique we can get accurate results by tuning the sampling interval or increasing the number of processing events.
+The results have further strengthened our confidence in the profiling sampling technique. This technique gives us 
+a reasonable overhead of total profiling time (5\% at \iamp) in comparison to the tools that count the functions calls. 
+For example, the popular profiling tool Valgrind~\cite{valgrind} counts every code instruction and programs running 
+under this tool usually runs from five to twenty times as slow as running outside Valgrind. Though Valgrind provide 
+the precise measurements, using the sampling technique we can get accurate results by tuning the sampling interval or 
+increasing the number of processing events.
 
-One issue  which deserves some attention is that the \iamp is a proprietary software. But you can use it for free if you are working at CERN lxplus cluster.
+One issue  which deserves some attention is that the \iamp is a proprietary software. But you can use it for free 
+if you are working at CERN lxplus cluster.
 
 We hope that this example of using \iamp in  Gaudi framework would help to implement other advanced profiling tools.
 
 \section*{References}
 \begin{thebibliography}{9}
-\bibitem{modular} "Modular Software Performance Monitoring",  Daniele Francesco Kruse and Karol Kruzelecki 2011 J. Phys.: Conf. Ser. 331 042014. 
+\bibitem{modular} "Modular Software Performance Monitoring",  Daniele Francesco Kruse and Karol Kruzelecki 2011 J. 
+Phys.: Conf. Ser. 331 042014. 
 \bibitem{gaudi} Barrand G et al. 2001 Comput. Phys. Commun. 140 45-55
 \bibitem{perfmon2} "Perfmon2: a standard performance monitoring interface for Linux", Stephane Eranian\\
 http://perfmon2.sourceforge.net/perfmon2-20080124.pdf
