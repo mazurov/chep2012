@@ -1,14 +1,43 @@
 \documentclass[a4paper]{jpconf}
 \usepackage{graphicx}
 \usepackage{float}
+%======================================================================================================================
+% DELETE FROM RELEASE:
+%======================================================================================================================
+\usepackage{hyperref}
+\hypersetup{
+  colorlinks = true,
+  urlcolor = blue,
+  pdfauthor = {Alexander Mazurov},
+  pdfkeywords = {scientific computing, system and distributing programming},
+  pdftitle = {Advanced Modular Software Performance Monitoring},
+  pdfsubject = {Advanced Modular Software Performance Monitoring},
+  pdfpagemode = UseNone
+}
+
 \usepackage{lineno}
+% Customize page headers
+\usepackage{fancyhdr}
+\setlength{\headheight}{15.2pt}
+\pagestyle{fancyplain}
+ 
+\fancyhf{}
+\lhead{\fancyplain{}{{\bf Version 1.6} (\today)}}
+\rhead{\fancyplain{}{\href{https://github.com/mazurov/chep2012/compare/v1.4...v1.5}{https://github.com/mazurov/chep2012/compare/v1.5...v1.6}}}
+
+\linenumbers
+%======================================================================================================================
+
 
 
 \begin{document}
-\linenumbers
-\title{Advanced Modular Software Performance Monitoring}
+\title{Advanced Modular Software Performance Monitoring }
 \author{A Mazurov\ad{1,2,3} and B Couturier\ad{1}}
-
+%======================================================================================================================
+% DELETE FROM RELEASE:
+%======================================================================================================================
+\thispagestyle{fancy}
+%======================================================================================================================
 \address{\ad{1} CERN, European Organization for Nuclear Research, Geneva, Switzerland}
 \address{\ad{2} University of Ferrara, Ferrara, Italy}
 \address{\ad{3} Institute for Nuclear Research, Troitsk, Russia}
