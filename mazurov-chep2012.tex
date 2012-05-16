@@ -22,7 +22,7 @@
 \newcommand\intel{{Intel\textsuperscript{\textregistered}} }
 
 \begin{abstract}
-The LHCb software is based on the Gaudi framework, on top of which are built several large and complex software applications. As the LHCb experiment is now in the active phase of collecting and analyzing data,  performance problems arise in various parts of the software, from the High Level Trigger (HLT) programs to data analysis frameworks. It is not easy to find hotspots in the code - only specialized tools can help to understand where CPU or memory usage are not reasonable. There exist many performance analyzing tools, but the main problem is that they show reports in terms of class and function names and such information usually is not very useful - the majority of algorithm developers use the Gaudi framework abstractions and usually do not know about functions which lie at the lower level. We will show a new approach which adds to performance reports a higher abstraction level based on knowledge of framework architecture and run-time object properties. A set of profiling tools (based on \iamp) and visualization interfaces has been developed and deployed.
+The LHCb software is based on the Gaudi framework, on top of which are built several large and complex software applications. As the LHCb experiment is now in the active phase of collecting and analyzing data,  performance problems arise in various parts of the software, from the High Level Trigger (HLT) programs to data analysis frameworks. It is not easy to find hotspots in the code --- only specialized tools can help to understand where CPU or memory usage are not reasonable. There exist many performance analyzing tools, but the main problem is that they show reports in terms of class and function names and such information usually is not very useful --- the majority of algorithm developers use the Gaudi framework abstractions and usually do not know about functions which lie at the lower level. We will show a new approach which adds to performance reports a higher abstraction level based on knowledge of framework architecture and run-time object properties. A set of profiling tools (based on \iamp) and visualization interfaces has been developed and deployed.
 \end{abstract}
 
 \section{Introduction}
@@ -44,7 +44,7 @@ In this section we overview the modern performance profiling tool \iamp, describ
 \subsection{Overview}
 \iamp is a commercial application for software performance analysis that is available for both Linux and Windows operating systems. \amp belongs to the runtime instrumentation class of profiling tools. This means that the code is instrumented before execution and program is fully supervised by the tool. A target application can be profiled without any modification of the codebase.
 
-\iamp has a various kinds of code analysis including hotspot analysis, concurrency analysis, locks and waits analysis. In our tools we use a hotspot analysis based on the user-mode  sampling feature of \amp. User-mode sampling allows to profile a program by exploring a call stack of a running program and produce one simple metric - amount of time spent in the function. 
+\iamp has a various kinds of code analysis including hotspot analysis, concurrency analysis, locks and waits analysis. In our tools we use a hotspot analysis based on the user-mode  sampling feature of \amp. User-mode sampling allows to profile a program by exploring a call stack of a running program and produce one simple metric --- amount of time spent in the function. 
 
 The amount of time spent in a function (CPU time) is calculated by interrupting a process and collecting samples of call stacks from all active threads. CPU time value is calculated by counting a number of  a function appearances on the top of a call stack. This means that stack sampling is a statistical method and does not provide a 100\% accurate data. However, for a large number of samples the sampling error does not have a serious impact on the accuracy of analysis. More details about sampling accuracy will be provided in the section on sampling interval.
 
@@ -60,7 +60,7 @@ To determine an appropriate sampling interval, consider the duration of the coll
 
 \subsection{Tools}
 
-\amp has two major interfaces - a command-line tool {\it amplxe-cl} and a Graphical User Interface tool {\it amplxe-gui}. {\it Amplxe-gui} generally plays a role of analysis results presenter, but can also be used as a wrapper to the  command-line tool. {\it Amplxe-cl} is used to execute the profiling supervisor with appropriate parameters.  The second important function of {\it amplxe-cl}is to export CPU usage reports to CSV text format. This feature allows to use collected data not only inside \amp, but also in external user applications. 
+\amp has two major interfaces --- a command-line tool {\it amplxe-cl} and a Graphical User Interface tool {\it amplxe-gui}. {\it Amplxe-gui} generally plays a role of analysis results presenter, but can also be used as a wrapper to the  command-line tool. {\it Amplxe-cl} is used to execute the profiling supervisor with appropriate parameters.  The second important function of {\it amplxe-cl}is to export CPU usage reports to CSV text format. This feature allows to use collected data not only inside \amp, but also in external user applications. 
 
 \subsection{Profiling reports}
 
@@ -174,7 +174,7 @@ An auditor is a good component for implementing the required profiling tool. In 
 
 An appropriate auditor was created and named Gaudi Intel Profiling Auditor. It was deployed to the GaudiProfiling package of Gaudi framework as a shared library. Below we show how this profiling tool marks regions and what reports can be generated.
 
-Gaudi has a special type of algorithms - Sequence. Each instance of Sequence can execute other algorithms or sequences. So, an application’s event loop could have not only a flat but also a tree structure. Moreover, the same algorithm instance can occur in different sequences. Therefore, was decided that algorithm’s region between its start and finish should be marked by the branch identifier. In this case, we get more detailed information about usage of algorithm in application. A branch identifier is constructed from an algorithm name and its parents in the sequence tree. For example, let’s profile an application that has the following sequence tree:
+Gaudi has a special type of algorithms --- Sequence. Each instance of Sequence can execute other algorithms or sequences. So, an application’s event loop could have not only a flat but also a tree structure. Moreover, the same algorithm instance can occur in different sequences. Therefore, was decided that algorithm’s region between its start and finish should be marked by the branch identifier. In this case, we get more detailed information about usage of algorithm in application. A branch identifier is constructed from an algorithm name and its parents in the sequence tree. For example, let’s profile an application that has the following sequence tree:
 \begin{verbatim}
 Hlt 
     HltDecisionSequence 
@@ -332,7 +332,7 @@ As expected, our test shows that the hotspot algorithms are the same in both aud
 
 \subsection{Custom reports}
 
-In the second example is demonstrated how custom reports can be created. Basic profiling reports can be picked up in VTune™ Amplifier XE, but if a custom report is required then a user tool needs to be created . This application can get the CPU usage data from VTune™ Amplifier XE by using its export function. For example, if we export CPU Time data that is shown on Figure~\ref{fig08} then the following pie chart report can be created.
+In the second example is demonstrated how custom reports can be created. Basic profiling reports can be picked up in \amp, but if a custom report is required then a user tool needs to be created . This application can get the CPU usage data from VTune™ Amplifier XE by using its export function. For example, if we export CPU Time data that is shown on Figure~\ref{fig08} then the following pie chart report can be created.
 
 \begin{figure}[H]
 \begin{minipage}{\textwidth}
@@ -350,7 +350,7 @@ In this paper we presented the Gaudi Intel Performance Auditor --- a CPU profili
 
 The results have further strengthened our confidence in the profiling sampling technique. This technique gives us a reasonable overhead of total profiling time (5\% at \iamp) in comparison to the tools that count the functions calls. For example, the popular profiling tool Valgrind~\cite{valgrind} counts every code instruction and programs running under this tool usually runs from five to twenty times as slow as running outside Valgrind. Though Valgrind provide the precise measurements, using the sampling technique we can get accurate results by tuning the sampling interval or increasing the number of processing events.
 
-One issue  which deserves some attention is the high price\footnote[1]{Nowadays, the price of \iamp 2011 is \$899 for single user.} of \iamp. The developed tools can be used as long as CERN has a license on Intel® products. However, after some investigations we can state, that there are no free alternatives to \amp with the same functionality.
+One issue  which deserves some attention is that the \iamp is a proprietary software. But you can use it for free if you are working at CERN lxplus cluster.
 
 We hope that this example of using \iamp in  Gaudi framework would help to implement other advanced profiling tools.
 
