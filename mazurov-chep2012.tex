@@ -64,10 +64,10 @@ interfaces has been developed and deployed.
 \end{abstract}
 
 \section{Introduction}
-In LHCb as in all High Energy Physics (HEP) experiments, complex software is used to process the data recorded 
+In LHCb, as in all High Energy Physics (HEP) experiments, complex software is used to process the data recorded 
 by the detectors. Performance is an essential characteristic of this software, especially when dealing with 
 the High Level Trigger (HLT): its role is to filter events coming from the hardware based trigger in order to identify 
-those with interesting physics, and to write them to the storage in real-time. The number of events processed per 
+those with interesting physics, and to write them to disk in real-time. The number of events processed per 
 second (event rate) is therefore one of the crucial characteristics of the HLT, as it has to keep up with the data rate 
 delivered by the hardware triggers ($10^6$ events per second) in order to avoid data loss. To reach such high 
 throughput, the processing is performed on many nodes in parallel by highly optimized algorithms. In order to optimize 
@@ -95,7 +95,7 @@ This design principle was first implemented in the set of profiling tools based 
 The tools have several drawbacks. First, the produced analysis reports  used the  hardware event counters metrics. 
 Only developers with a good knowledge of the hardware could read and interpret those report. Since the major part of 
 developers at HEP are physicists, the number of users of those tools are very low. Second, since the current tools 
-does not use the counters multiplexing feature of perfmon2 library, the target program should be runned several times 
+does not use the counters multiplexing feature of perfmon2 library, the target program should be run several times 
 to collect all required hardware counters. As a result, the profiling time is significantly increasing.
 
 To fill some of the the gaps of the previous tools we created the Gaudi Intel Profiling Auditor. This profiling tool 
