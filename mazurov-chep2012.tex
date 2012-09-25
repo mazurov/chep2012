@@ -22,8 +22,8 @@
 \pagestyle{fancyplain}
  
 \fancyhf{}
-\lhead{\fancyplain{}{{\bf Version 1.9} (\today)}}
-\rhead{\fancyplain{}{\href{https://github.com/mazurov/chep2012/compare/v1.8...v1.9}{https://github.com/mazurov/chep2012/compare/v1.8...v1.9}}}
+\lhead{\fancyplain{}{{\bf Version 1.10} (\today)}}
+\rhead{\fancyplain{}{\href{https://github.com/mazurov/chep2012/compare/v1.9...v1.10}{https://github.com/mazurov/chep2012/compare/v1.9...v1.10}}}
 
 \linenumbers
 %======================================================================================================================
@@ -141,7 +141,7 @@ for implementation we chose the user-mode sampling method over hardware-mode sam
 \subsection{Sampling interval}
 
 The sampling interval is an important parameter of the user-mode sampling method. It can impact on results accuracy and 
-on total profiling time. \intel recommends to use 10 ms interval. Using this value the average overhead of the sampling 
+on total profiling time. \intel recommends to use a 10 ms interval. Using this value the average overhead of the sampling 
 is about 5\% in the most applications. The minimum sampling interval value depends on the operating system. For example, a 10 ms interval 
 is the minimum value for the old Linux kernel 2.4, whereas 1 ms is the minimum value for the modern Linux $\ge$ 2.6 kernels.
 
@@ -245,7 +245,7 @@ in algorithms and usually do not care about other parts of the framework.
 \begin{figure}[H]
 \begin{minipage}{\textwidth}
 \includegraphics[width=\textwidth]{figs/fig07.png}
-\caption{\label{fig07}Gaudi Architecture. Applications are made by composing sequences of Algorithms and adding 
+\caption{\label{fig07}Gaudi Architecture (as described in ~\cite{gaudi}). Applications are made by composing sequences of Algorithms and adding 
 specific Services and Tools.}
 \end{minipage}
 \end{figure}
